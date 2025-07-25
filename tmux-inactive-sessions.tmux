@@ -1,11 +1,12 @@
 # tmux-inactive-sessions plugin entry point
 # Defines a custom tmux command to list inactive sessions
 
-# Create the custom command using bind-key
-bind-key -T prefix i run-shell "#{@plugin_root}/scripts/list-inactive-sessions.sh"
+# Native tmux interactive chooser for inactive sessions
+# Filter sessions where session_activity equals session_created (no activity since creation)
+bind-key -T prefix i choose-tree -s -f '#{==:#{session_activity},#{session_created}}' -F "#{session_name}: #{session_windows} windows (inactive)" -O name -K 'x:kill-session -t "%%"' "switch-client -t '%%'"
 
-# Also create it as a command that can be called directly
-set-option -g command-alias[0] "list-inactive-sessions=run-shell '#{@plugin_root}/scripts/list-inactive-sessions.sh'"
+# Command alias for the same functionality
+set-option -g command-alias[0] "list-inactive-sessions=choose-tree -s -f '#{==:#{session_activity},#{session_created}}' -F '#{session_name}: #{session_windows} windows (inactive)' -O name -K 'x:kill-session -t \"%%\"' 'switch-client -t \"%%\"'"
 
 # Set the plugin root path
 set-option -g @plugin_root "~/.tmux/plugins/tmux-inactive-sessions"

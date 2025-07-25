@@ -18,19 +18,35 @@ A tmux plugin to list inactive sessions (created but never used or with no activ
 
 ## Usage
 
-The plugin provides three ways to list inactive sessions:
+### Interactive Mode (Inside tmux)
 
-1. **Terminal command**: `tmux list-inactive-sessions`
-2. **Within tmux**: `:list-inactive-sessions` (press `:` then type the command)
-3. **Key binding**: `prefix + i`
+When used inside tmux, the plugin automatically launches an interactive chooser:
+
+1. **Key binding**: `prefix + i`
+2. **Command mode**: `:list-inactive-sessions`
+
+**Interactive Features:**
+- Navigate with ↑/↓ arrow keys
+- Press **Enter** to switch to selected session
+- Press **x** to kill selected session
+- Press **q** to quit chooser
+
+### Non-Interactive Mode (Terminal)
+
+When used outside tmux or with specific flags:
+
+- **List sessions**: `./scripts/list-inactive-sessions.sh`
+- **Kill all inactive sessions**: `./scripts/list-inactive-sessions.sh -k`
 
 ## Output Format
 
-The plugin shows sessions that haven't been used since creation:
+### Non-Interactive List Output
+
+When listing sessions (outside tmux), the output shows:
 
 ```
 13:        1 windows (no process running)
-14:        1 windows (no process running)
+14:        1 windows (no process running)  
 27:        1 windows (no process running)
 ```
 
@@ -40,6 +56,14 @@ Each line shows:
 - **Inactivity reason**: Why the session is considered inactive
   - `no process running` - Session has no active processes
   - `last updated [date time]` - Session hasn't been used since creation
+
+### Interactive Chooser Display
+
+When using interactive mode, sessions appear as:
+```
+test1: 1 windows (inactive)
+test2: 1 windows (inactive)
+```
 
 ## What Makes a Session "Inactive"
 

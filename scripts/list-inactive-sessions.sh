@@ -1,6 +1,37 @@
 #!/bin/bash
 
 # Script to list inactive tmux sessions (no activity since creation, no child processes)
+# Usage: list-inactive-sessions.sh [-k] [-i]
+# -k: Kill all inactive sessions instead of listing them
+# -i: Interactive mode (only works inside tmux)
+
+# Parse command line arguments
+KILL_MODE=false
+INTERACTIVE_MODE=false
+
+# Auto-enable interactive mode when inside tmux (unless -k is specified)
+# Check both TMUX and TMUX_PANE to handle run-shell context
+if [ -n "$TMUX" ] || [ -n "$TMUX_PANE" ]; then
+  INTERACTIVE_MODE=true
+fi
+
+while getopts "ki" opt; do
+  case $opt in
+    k)
+      KILL_MODE=true
+      INTERACTIVE_MODE=false  # -k overrides interactive mode
+      ;;
+    i)
+      INTERACTIVE_MODE=true
+      ;;
+    \?)
+      echo "Usage: $0 [-k] [-i]" >&2
+      echo "  -k: Kill all inactive sessions instead of listing them" >&2
+      echo "  -i: Force interactive mode (auto-enabled inside tmux)" >&2
+      exit 1
+      ;;
+  esac
+done
 
 # Ensure tmux is running and sessions exist
 if ! tmux list-sessions >/dev/null 2>&1; then
@@ -18,12 +49,16 @@ format_timestamp() {
   fi
 }
 
-# Iterate over all sessions
-tmux list-sessions -F "#{session_name} #{session_created}" | while read -r session created; do
+# Collect inactive sessions
+inactive_sessions=()
+
+# Process each session and collect inactive ones
+while IFS=' ' read -r session created; do
   # Handle unnamed sessions
   if [ -z "$session" ] || [ "$session" = "" ]; then
     session="[unnamed-session]"
   fi
+  
   # Check if latest window activity matches creation time
   latest_activity=$(tmux list-windows -t "$session" -F "#{window_activity}" | sort -n | tail -1)
   
@@ -31,19 +66,51 @@ tmux list-sessions -F "#{session_name} #{session_created}" | while read -r sessi
   if [ "$latest_activity" = "$created" ]; then
     # Check if all panes have no child processes
     has_processes=false
-    while read -r pane pid; do
+    while IFS=' ' read -r pane pid; do
       if ps -o pid= --ppid "$pid" 2>/dev/null | grep -q .; then
         has_processes=true
         break
       fi
     done < <(tmux list-panes -t "$session" -F "#{pane_index} #{pane_pid}")
     
-    # Session is inactive - determine reason
-    windows=$(tmux list-windows -t "$session" | wc -l)
-    if [ "$has_processes" = false ]; then
-      echo "$session: $windows windows (no process running)"
-    else
-      echo "$session: $windows windows (last updated $(format_timestamp "$created"))"
+    # Session is inactive - add to array
+    inactive_sessions+=("$session")
+    
+    # Display info if not in kill mode and not in interactive mode
+    if [ "$KILL_MODE" = false ] && [ "$INTERACTIVE_MODE" = false ]; then
+      windows=$(tmux list-windows -t "$session" | wc -l)
+      if [ "$has_processes" = false ]; then
+        echo "$session: $windows windows (no process running)"
+      else
+        echo "$session: $windows windows (last updated $(format_timestamp "$created"))"
+      fi
     fi
   fi
-done
+done < <(tmux list-sessions -F "#{session_name} #{session_created}")
+
+# Interactive mode: call separate interactive script (only inside tmux)
+if [ "$INTERACTIVE_MODE" = true ]; then
+  # Check if we're inside tmux - but also check if we're being run from tmux via run-shell
+  if [ -z "$TMUX" ] && [ -z "$TMUX_PANE" ]; then
+    echo "Interactive mode only works inside tmux" >&2
+    exit 1
+  fi
+  
+  # Call the interactive script which can launch choose-tree
+  exec "$(dirname "$0")/interactive-inactive-sessions.sh"
+fi
+
+# Kill mode: remove all inactive sessions
+if [ "$KILL_MODE" = true ]; then
+  if [ ${#inactive_sessions[@]} -eq 0 ]; then
+    echo "No inactive sessions to kill"
+    exit 0
+  fi
+  
+  echo "Killing ${#inactive_sessions[@]} inactive sessions..."
+  for session in "${inactive_sessions[@]}"; do
+    echo "  Killing session: $session"
+    tmux kill-session -t "$session" 2>/dev/null || echo "    Warning: Failed to kill session $session"
+  done
+  echo "Done."
+fi
