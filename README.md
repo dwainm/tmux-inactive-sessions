@@ -1,7 +1,7 @@
 
 # tmux-inactive-sessions
 
-A tmux plugin to list inactive sessions (created but never used or with no active processes).
+A tmux plugin to list and manage inactive tmux sessions with interactive capabilities.
 
 ## Installation
 
@@ -16,19 +16,23 @@ A tmux plugin to list inactive sessions (created but never used or with no activ
    - Press `prefix + I` to install plugins
    - Or reload manually: `tmux source-file ~/.tmux.conf`
 
+3. **Optional**: Add key binding to your `~/.tmux.conf`:
+   ```tmux
+   bind-key i run-shell '~/.tmux/plugins/tmux-inactive-sessions/scripts/interactive-inactive-sessions.sh'
+   ```
+
 ## Usage
 
 ### Interactive Mode (Inside tmux)
 
-When used inside tmux, the plugin automatically launches an interactive chooser:
+When used inside tmux, the plugin launches an interactive chooser using tmux's built-in `choose-tree`:
 
-1. **Key binding**: `prefix + i`
-2. **Command mode**: `:list-inactive-sessions`
+**Command**: `:list-inactive-sessions`
 
 **Interactive Features:**
 - Navigate with ↑/↓ arrow keys
 - Press **Enter** to switch to selected session
-- Press **x** to kill selected session
+- Press **x** to kill selected session (with confirmation)
 - Press **q** to quit chooser
 
 ### Non-Interactive Mode (Terminal)
@@ -67,8 +71,14 @@ test2: 1 windows (inactive)
 
 ## What Makes a Session "Inactive"
 
-A session is considered inactive when:
-- It hasn't been used since creation (no window activity after the creation time)
+A session is considered inactive when it meets **either** of these criteria:
+
+### Criterion 1: Old Unnamed Sessions
+- Session has a numeric name (0, 1, 2, etc. - tmux's default unnamed sessions)
+- AND session is older than 1 hour
+
+### Criterion 2: Never-Used Sessions  
+- Session hasn't been used since creation (no window activity after the creation time)
 - AND it has no active child processes running
 
-This helps identify sessions that were created but abandoned, making it easier to clean up your tmux environment.
+This helps identify both abandoned sessions and old unnamed sessions that clutter your tmux environment.

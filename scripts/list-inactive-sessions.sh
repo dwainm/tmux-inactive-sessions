@@ -55,35 +55,61 @@ inactive_sessions=()
 # Process each session and collect inactive ones
 while IFS=' ' read -r session created; do
   # Handle unnamed sessions
+  original_session="$session"
   if [ -z "$session" ] || [ "$session" = "" ]; then
     session="[unnamed-session]"
   fi
   
-  # Check if latest window activity matches creation time
-  latest_activity=$(tmux list-windows -t "$session" -F "#{window_activity}" | sort -n | tail -1)
+  # Check if session is inactive based on different criteria
+  is_inactive=false
+  reason=""
   
-  # Only proceed if session hasn't been used since creation
-  if [ "$latest_activity" = "$created" ]; then
-    # Check if all panes have no child processes
-    has_processes=false
-    while IFS=' ' read -r pane pid; do
-      if ps -o pid= --ppid "$pid" 2>/dev/null | grep -q .; then
-        has_processes=true
-        break
-      fi
-    done < <(tmux list-panes -t "$session" -F "#{pane_index} #{pane_pid}")
+  # Criterion 1: Unnamed sessions (numeric names) older than 1 hour
+  if echo "$original_session" | grep -Eq '^[0-9]+$'; then
+    current_time=$(date +%s)
+    session_age=$((current_time - created))
+    if [ $session_age -gt 3600 ]; then  # 3600 seconds = 1 hour
+      is_inactive=true
+      reason="unnamed session older than 1 hour"
+    fi
+  fi
+  
+  # Criterion 2: Sessions with no activity since creation and no processes
+  if [ "$is_inactive" = false ]; then
+    latest_activity=$(tmux list-windows -t "$original_session" -F "#{window_activity}" | sort -n | tail -1)
     
-    # Session is inactive - add to array
-    inactive_sessions+=("$session")
+    if [ "$latest_activity" = "$created" ]; then
+      # Check if all panes have no child processes
+      has_processes=false
+      while IFS=' ' read -r pane pid; do
+        if ps -o pid= --ppid "$pid" 2>/dev/null | grep -q .; then
+          has_processes=true
+          break
+        fi
+      done < <(tmux list-panes -t "$original_session" -F "#{pane_index} #{pane_pid}")
+      
+      if [ "$has_processes" = false ]; then
+        is_inactive=true
+        reason="no process running"
+      else
+        is_inactive=true
+        reason="last updated $(format_timestamp "$created")"
+      fi
+    fi
+  fi
+  
+  # Add to inactive sessions if it meets any criteria
+  if [ "$is_inactive" = true ]; then
+    inactive_sessions+=("$original_session")
     
     # Display info if not in kill mode and not in interactive mode
     if [ "$KILL_MODE" = false ] && [ "$INTERACTIVE_MODE" = false ]; then
-      windows=$(tmux list-windows -t "$session" | wc -l)
-      if [ "$has_processes" = false ]; then
-        echo "$session: $windows windows (no process running)"
-      else
-        echo "$session: $windows windows (last updated $(format_timestamp "$created"))"
+      windows=$(tmux list-windows -t "$original_session" | wc -l)
+      display_name="$original_session"
+      if [ -z "$original_session" ] || [ "$original_session" = "" ]; then
+        display_name="[unnamed-session]"
       fi
+      echo "$display_name: $windows windows ($reason)"
     fi
   fi
 done < <(tmux list-sessions -F "#{session_name} #{session_created}")
