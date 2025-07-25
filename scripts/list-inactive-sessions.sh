@@ -8,11 +8,11 @@ if ! tmux list-sessions >/dev/null 2>&1; then
   exit 1
 fi
 
-# Function to format timestamp
+# Function to format timestamp (simple format without timezone)
 format_timestamp() {
   local timestamp=$1
   if command -v date >/dev/null 2>&1; then
-    date -d "@$timestamp" 2>/dev/null || date -r "$timestamp" 2>/dev/null
+    date -d "@$timestamp" "+%Y-%m-%d %H:%M" 2>/dev/null || date -r "$timestamp" "+%Y-%m-%d %H:%M" 2>/dev/null
   else
     echo "$timestamp"
   fi
@@ -20,23 +20,30 @@ format_timestamp() {
 
 # Iterate over all sessions
 tmux list-sessions -F "#{session_name} #{session_created}" | while read -r session created; do
+  # Handle unnamed sessions
+  if [ -z "$session" ] || [ "$session" = "" ]; then
+    session="[unnamed-session]"
+  fi
   # Check if latest window activity matches creation time
   latest_activity=$(tmux list-windows -t "$session" -F "#{window_activity}" | sort -n | tail -1)
+  
+  # Only proceed if session hasn't been used since creation
   if [ "$latest_activity" = "$created" ]; then
     # Check if all panes have no child processes
-    idle=true
+    has_processes=false
     while read -r pane pid; do
-      if ps -o pid= --ppid "$pid" | grep -q .; then
-        idle=false
+      if ps -o pid= --ppid "$pid" 2>/dev/null | grep -q .; then
+        has_processes=true
         break
       fi
     done < <(tmux list-panes -t "$session" -F "#{pane_index} #{pane_pid}")
     
-    # If session is idle, output in tmux-like format
-    if [ "$idle" = true ]; then
-      windows=$(tmux list-windows -t "$session" | wc -l)
-      created_formatted=$(format_timestamp "$created")
-      echo "$session: $windows windows (created $created_formatted) (idle)"
+    # Session is inactive - determine reason
+    windows=$(tmux list-windows -t "$session" | wc -l)
+    if [ "$has_processes" = false ]; then
+      echo "$session: $windows windows (no process running)"
+    else
+      echo "$session: $windows windows (last updated $(format_timestamp "$created"))"
     fi
   fi
 done
