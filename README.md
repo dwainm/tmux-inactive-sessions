@@ -1,6 +1,8 @@
 
 # tmux-inactive-sessions
 
+> **⚠️ Maintenance Notice**: This plugin is no longer actively maintained. For more context on this decision and lessons learned, see [AI Credits and a Little Inconvenience](https://dwain.maralack.com/ai-credits-and-a-little-inconvenience/).
+
 A tmux plugin to list and manage inactive tmux sessions with interactive capabilities.
 
 ## Installation
@@ -16,18 +18,31 @@ A tmux plugin to list and manage inactive tmux sessions with interactive capabil
    - Press `prefix + I` to install plugins
    - Or reload manually: `tmux source-file ~/.tmux.conf`
 
-3. **Optional**: Add key binding to your `~/.tmux.conf`:
+3. **Optional**: Add key bindings to your `~/.tmux.conf`:
    ```tmux
+   # Interactive chooser for inactive sessions
    bind-key i run-shell '~/.tmux/plugins/tmux-inactive-sessions/scripts/interactive-inactive-sessions.sh'
+   
+   # Kill all inactive sessions
+   bind-key k run-shell '~/.tmux/plugins/tmux-inactive-sessions/scripts/list-inactive-sessions.sh -k'
    ```
 
 ## Usage
+
+### Commands Available
+
+The plugin provides two tmux commands:
+
+- **`:list-inactive-sessions`** - Interactive chooser to browse and manage inactive sessions
+- **`:kill-inactive-sessions`** - Kill all inactive sessions at once
 
 ### Interactive Mode (Inside tmux)
 
 When used inside tmux, the plugin launches an interactive chooser using tmux's built-in `choose-tree`:
 
-**Command**: `:list-inactive-sessions`
+**Commands**: 
+- `:list-inactive-sessions` (interactive chooser)
+- `:kill-inactive-sessions` (kill all)
 
 **Interactive Features:**
 - Navigate with ↑/↓ arrow keys
