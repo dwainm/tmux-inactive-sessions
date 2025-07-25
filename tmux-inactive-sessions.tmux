@@ -1,10 +1,11 @@
 #!/bin/bash
 
 # tmux-inactive-sessions plugin entry point
-# Integrates with tmux to list inactive sessions
+# Defines a custom tmux command to list inactive sessions
 
-# Define a tmux command alias to run the list-inactive-sessions script
-tmux set -g @inactive-sessions-script "$TMUX_PROGRAM ${TMUX_PLUGIN_MANAGER_PATH:-$HOME/.tmux/plugins}/tmux-inactive-sessions/scripts/list-inactive-sessions.sh"
+# Store the script path in a tmux option
+tmux set-option -g @tmux-inactive-sessions-script "$TMUX_PROGRAM ${TMUX_PLUGIN_MANAGER_PATH:-$HOME/.tmux/plugins}/tmux-inactive-sessions/scripts/list-inactive-sessions.sh"
 
-# Optional: Users can bind a key in ~/.tmux.conf to run the script, e.g.:
-# bind-key x run-shell "$TMUX_PROGRAM ${TMUX_PLUGIN_MANAGER_PATH:-$HOME/.tmux/plugins}/tmux-inactive-sessions/scripts/list-inactive-sessions.sh"
+# Define a custom tmux command: list-inactive-sessions
+tmux run-shell -b "tmux set-option -g @tmux-inactive-sessions-command 'run-shell #{@tmux-inactive-sessions-script}'"
+tmux command-alias list-inactive-sessions="run-shell #{@tmux-inactive-sessions-script}"
